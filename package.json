@@ -1,0 +1,15 @@
+{
+  "name": "serverless-fb-messenger",
+  "version": "0.0.0",
+  "description": "Facebook Messenger client for Lambda and API Gateway",
+  "main": "./lib/index.js",
+  "contributors": [{
+    "name": "Tom Maslen",
+    "email": "tom_maslen@hotmail.com"
+  }],
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tmaslen/serverless-fb-messenger"
+  }
+}
