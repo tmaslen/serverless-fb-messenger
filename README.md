@@ -37,11 +37,19 @@ exports.handler = function ( event, context, respondToMessenger ) {
 
 	// Log messages from all users
 	sfm.on( "message", ( userId, message ) => {
-        console.log( `The user ${userId} said "${message}" );
+		console.log( `The user ${userId} said "${message}" );
     });
 
 	// Tell server-less-fb-messenger to start listening
 	sfm.init( event, context, respondToMessenger );
 
 });
+```
+
+## Developing lambda-fs-messenger
+
+Run the tests:
+
+```
+npm test
 ```

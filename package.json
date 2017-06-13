@@ -7,6 +7,15 @@
     "name": "Tom Maslen",
     "email": "tom_maslen@hotmail.com"
   }],
+  "scripts": {
+    "test": "./node_modules/mocha/bin/mocha"
+  },
+  "devDependencies": {
+    "mocha":       "*",
+    "chai":        "*",
+    "sinon":       "2.3.*",
+    "@types/node": "^7.0.13"
+  },
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
