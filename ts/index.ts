@@ -1,5 +1,27 @@
 const https = require( "https" );
 
+interface textMessageToFacebook {
+    "recipient": {
+        "id": string
+    },
+    "message": {
+    	"text"?: string,
+    	"quick_replies"?: Array<{
+    		"content_type": string,
+    		"title": string,
+    		"payload": string
+    	}>,
+    	"attachment"?: {
+    		"type": string,
+    		"payload": {
+    			"template_type": string,
+    			"text": string,
+    			"buttons": object[]
+    		}
+    	}
+    }
+};
+
 const ALLOWED_EVENTS = [
 	"authentication",
 	"message",
@@ -9,24 +31,69 @@ const ALLOWED_EVENTS = [
 	"accountLinking"
 ];
 
-function getQuickReplyPayload( message ) {
+function getQuickReplyPayload( message: any ): string | null {
 	if ( ( "quick_reply" in message ) && ( "payload" in message.quick_reply ) ) {
 		return message.quick_reply.payload;
 	}
-	return false;
+	return null;
 }
 
-function valueIsStringifiedJson( value ) {
+function valueIsStringifiedJson( value: string | null ):boolean {
 	if ( value === null ) {
 		return false;
 	}
 	return value.charAt && ( value.charAt( 0 ) === "{" );
 }
 
-const EVENT_CALLBACKS = {
-	"message": ( callback, messageEvent ) => {
+type Callback = ( event: EventFromFacebook ) => void;
 
-		var payload = getQuickReplyPayload( messageEvent.message ) || "";
+type EmptyCallback = () => void;
+
+type MessageCallback = ( id:string, text:string, payload:string|boolean, messageEvent:object) => void;
+
+type PostbackCallback = ( id:string, payload:string|boolean, referral: string, messageEvent:object) => void;
+
+type RespondToMessengerCallback = ( error: null, msg: string) => void;
+
+type LambdaContext = {
+	"done": () => void
+};
+
+interface EventFromFacebook {
+	"sender": {
+		"id": string
+	},
+	"recipient": {
+		"id": string
+	},
+	"timestamp": number
+}
+
+interface MessageEventFromFacebook extends EventFromFacebook  {
+	"message": {
+		"mid": string,
+		"text": string,
+		"quick_reply"?: {
+			"payload": string
+		}
+	}
+}
+
+interface PostbackEventFromFacebook extends EventFromFacebook {
+	"postback":{
+		"payload": string,
+		"referral": {
+			"ref": string,
+			"source": "SHORTLINK",
+			"type": "OPEN_THREAD",
+		}
+	}
+}
+
+const EVENT_CALLBACKS = {
+	"message": ( callback: MessageCallback, messageEvent: MessageEventFromFacebook ): void => {
+
+		var payload: string | null = getQuickReplyPayload( messageEvent.message ) || "";
 
 		if ( valueIsStringifiedJson( payload ) ) {
 			payload = JSON.parse( payload );
@@ -39,7 +106,7 @@ const EVENT_CALLBACKS = {
 			messageEvent
 		); 
 	},
-	"postback": ( callback, messageEvent ) => {
+	"postback": ( callback: PostbackCallback, messageEvent: PostbackEventFromFacebook ): void => {
 
 		var payload = messageEvent.postback.payload;
 
@@ -61,30 +128,98 @@ const EVENT_CALLBACKS = {
 		);
 
 	},
-	"authentication":   ( callback, messageEvent ) => { callback( messageEvent ); },
-	"messageDelivered": ( callback, messageEvent ) => { callback( messageEvent ); },
-	"messageRead":      ( callback, messageEvent ) => { callback( messageEvent ); },
-	"accountLinking":   ( callback, messageEvent ) => { callback( messageEvent ); }
+	"authentication":   ( callback: Callback, messageEvent: EventFromFacebook ) => { callback( messageEvent ); },
+	"messageDelivered": ( callback: Callback, messageEvent: EventFromFacebook ) => { callback( messageEvent ); },
+	"messageRead":      ( callback: Callback, messageEvent: EventFromFacebook ) => { callback( messageEvent ); },
+	"accountLinking":   ( callback: Callback, messageEvent: EventFromFacebook ) => { callback( messageEvent ); }
 };
 
-const MessengerClient = function( params ) {
+type MessengerClientParams = {
+	"pageAccessToken"?: string,
+	"verifyToken"?: string
+}
+
+const MessengerClient = function( params:MessengerClientParams ): void {
 	
 	this.registeredCallbacks = {};
 	this.addCallbackTypes();
 
-	params = params || {};
+	params               = params || {};
 	this.pageAccessToken = params.pageAccessToken || null;
-	this.verifyToken     = params.verifyToken || null;
+	this.verifyToken     = params.verifyToken     || null;
 
 }
 
+type shareMessageParams = {
+	"userId": string,
+	"title": string,
+	"subtitle": string,
+	"imageUrl": string,
+	"buttons"?: Array<{
+		"type": string
+	}>
+};
+
+type sendImageParams = {
+	"userId": string,
+	"url": string,
+	"quickReplies"?: Array<{
+		"text": string,
+		"payload": object
+	}>
+};
+
+type sendMessageParams = {
+	"userId": string,
+	"message": string,
+	"quickReplies"?: Array<{
+		"text": string,
+		"payload": string | object
+	}>,
+	"buttons"?: Array<{
+		"text": string,
+		"payload": string | object
+	}>
+}
+
+type httpRequestOptions = {
+	"method"?:      "POST" | "PUT" | "GET" | "DELETE",
+	"messageType"?: "default" | "threadSetting" | "messengerProfile"
+};
+
+type ApiGatewayEvent = {
+	"context": {
+		"http-method": string,
+	},
+	"params": {
+		"querystring": {
+			"hub.mode":         string,
+			"hub.verify_token": string,
+			"hub.challenge":    string
+		}
+	},
+	"body-json": {
+		"object": "page",
+		"entry": Array<{
+			"messaging": Array<{
+				"optin"?:          string,
+				"message"?:        string,
+				"delivery"?:       string,
+				"postback"?:       string,
+				"read"?:           string,
+				"account_linking": string
+			}>
+		}>
+	}
+};
+
 MessengerClient.prototype = {
-	addCallbackTypes: function() {
+	addCallbackTypes: function(): void {
 		ALLOWED_EVENTS.forEach( e => {
 			this.registeredCallbacks[ e ] = [];
 		});
 	},
-	sendShareMessage: function( params ) {
+	sendShareMessage: function( params: shareMessageParams ): Promise<null> {
 
 		return new Promise( ( resolve, reject ) => {
 			
@@ -131,7 +266,7 @@ MessengerClient.prototype = {
 		});
 
 	},
-	sendImage: function( params ) {
+	sendImage: function( params: sendImageParams ): Promise<null> {
 
 		return new Promise( ( resolve, reject ) => {
 
@@ -165,7 +300,7 @@ MessengerClient.prototype = {
 
 		});
 	},
-	addGetStartedPage: function ( payload ) {
+	addGetStartedPage: function ( payload: string | object ): void {
 
     	const command = { 
 		    "get_started":{
@@ -182,7 +317,7 @@ MessengerClient.prototype = {
 		);
 
 	},
-	removeGetStartedPage: function () {
+	removeGetStartedPage: function (): void {
 
         	const command = {
 				"fields": [
@@ -199,7 +334,7 @@ MessengerClient.prototype = {
 			);
 
 	},
-	_sendToFacebookAPI: function( postBody, options ) {
+	_sendToFacebookAPI: function( postBody: object, options: httpRequestOptions ): Promise<null> {
 
 		options = options || {};
 		options.messageType = options.messageType || "default";
@@ -224,9 +359,9 @@ MessengerClient.prototype = {
 
 		return new Promise( ( resolve, reject ) => {
 
-			console.log( "SENDING MESSAGE" );
-	        console.log( requestParams.hostname + requestParams.path );
-	        console.log( JSON.stringify( postBody, null, " " ) );
+			// console.log( "SENDING MESSAGE" );
+	  //       console.log( requestParams.hostname + requestParams.path );
+	  //       console.log( JSON.stringify( postBody, null, " " ) );
 
 			var req = https.request( requestParams, ( res ) => {
 				
@@ -270,11 +405,11 @@ MessengerClient.prototype = {
 		});
 
 	},
-	sendMessage: function( params ) {
+	sendMessage: function( params: sendMessageParams ): Promise<null> {
 
 		return new Promise( ( resolve, reject ) => {
 
-			var message = {
+			var message: textMessageToFacebook = {
 		        "recipient": {
 		            "id": params.userId
 		        },
@@ -295,7 +430,7 @@ MessengerClient.prototype = {
 
 	        if ( params.buttons ) {
 
-	        	message.message = {
+	        	message[ "message" ] = {
 	        		"attachment": {
 	        			"type": "template",
 	        			"payload": {
@@ -321,7 +456,7 @@ MessengerClient.prototype = {
 		});
 
 	},
-	fireEvent: function( eventName, messageEvent, callback ) {
+	fireEvent: function( eventName: string, messageEvent: EmptyCallback, callback: EmptyCallback ): void {
 
 		if ( eventName in this.registeredCallbacks ) {
 
@@ -336,14 +471,14 @@ MessengerClient.prototype = {
 		callback();
 
 	},
-	on: function( eventName, callback ) {
+	on: function( eventName: string, callback: EmptyCallback ) {
 
-		if ( ALLOWED_EVENTS.indexOf( eventName ) ) {
+		if ( ALLOWED_EVENTS.indexOf( eventName ) > -1 ) {
 			this.registeredCallbacks[ eventName ].push( callback );
 		}
 
 	},
-	init: function( event, lambdaContext, respondToMessenger ) {
+	init: function( event: ApiGatewayEvent, lambdaContext: LambdaContext, respondToMessenger: RespondToMessengerCallback ) {
 
 		const method = event.context["http-method"];
 
