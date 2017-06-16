@@ -8,13 +8,14 @@
     "email": "tom_maslen@hotmail.com"
   }],
   "scripts": {
-    "test": "./node_modules/mocha/bin/mocha"
+    "test": "./node_modules/mocha/bin/mocha --require source-map-support/register"
   },
   "devDependencies": {
-    "mocha":       "*",
-    "chai":        "*",
-    "sinon":       "2.3.*",
-    "@types/node": "^7.0.13"
+    "mocha":              "*",
+    "chai":               "*",
+    "sinon":              "2.3.*",
+    "@types/node":        "^7.0.13",
+    "source-map-support": "0.4.*"
   },
   "license": "Apache-2.0",
   "repository": {
