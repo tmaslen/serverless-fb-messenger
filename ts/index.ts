@@ -471,14 +471,14 @@ MessengerClient.prototype = {
 		callback();
 
 	},
-	on: function( eventName: string, callback: EmptyCallback ) {
+	on: function( eventName: string, callback: EmptyCallback ): void {
 
 		if ( ALLOWED_EVENTS.indexOf( eventName ) > -1 ) {
 			this.registeredCallbacks[ eventName ].push( callback );
 		}
 
 	},
-	init: function( event: ApiGatewayEvent, lambdaContext: LambdaContext, respondToMessenger: RespondToMessengerCallback ) {
+	init: function( event: ApiGatewayEvent, lambdaContext: LambdaContext, respondToMessenger: RespondToMessengerCallback ): void {
 
 		const method = event.context["http-method"];
 

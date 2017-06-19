@@ -1,6 +1,6 @@
 {
   "name": "serverless-fb-messenger",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "Facebook Messenger client for Lambda and API Gateway",
   "main": "./lib/index.js",
   "contributors": [{
